@@ -61,7 +61,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
-    "https://freeresumeanalyzer.netlify.app/",
+    "https://freeresumeanalyzer.netlify.app",
 ]
 
 ROOT_URLCONF = 'django_resume_analyzer.urls'
