@@ -31,9 +31,7 @@ SECRET_KEY = 'django-insecure-sus^+%mlc10_kxu%(#du_%^ky4*dp5n@!vb9ftwx+#+lxg8*5-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    "https://resume-analyzer-backend-py6v.onrender.com"
-]
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
