@@ -1,9 +1,9 @@
-import requests
 import os
+import requests
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-system_prompt ="""You are an Applicant Tracking System (ATS) analysis engine.
+system_prompt = """You are an Applicant Tracking System (ATS) analysis engine.
 
 Your task:
 - Analyze the provided RESUME TEXT and JOB DESCRIPTION.
@@ -73,30 +73,63 @@ Failure conditions:
 - Do not include trailing commas.
 - Do not include null values."""
 
+
 def ask_llm(messages):
+    if not GROQ_API_KEY:
+        raise ValueError("GROQ_API_KEY environment variable is not set.")
+
     url = "https://api.groq.com/openai/v1/chat/completions"
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
     payload = {
         "model": "llama-3.3-70b-versatile",
         "messages": [
-            {"role":"system","content":system_prompt},
-            *messages
+            {"role": "system", "content": system_prompt},
+            *messages,
         ],
-        "temperature": 0.5
+        "response_format": {"type": "json_object"},
+        "temperature": 0.3,
     }
 
-    response = requests.post(url, headers=headers, json=payload,timeout=30)
-    data = response.json()
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+    except requests.exceptions.Timeout:
+        raise RuntimeError("Groq API request timed out after 30 seconds.")
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(f"Network error connecting to Groq API: {exc}")
 
-    # defensive programming so it doesn't crash like before
-    if "error" in data:
-        return data["error"]["message"]
+    if not response.text.strip():
+        raise RuntimeError(
+            f"Groq API returned an empty response (Status: {response.status_code})."
+        )
 
-    if "choices" not in data or len(data["choices"]) == 0:
-        return "Invalid response from LLM"
-    return data["choices"][0]["message"]["content"]
+    try:
+        data = response.json()
+    except requests.exceptions.JSONDecodeError:
+        raise RuntimeError(
+            f"Groq API returned non-JSON response (Status: {response.status_code}): {response.text[:200]}"
+        )
+
+    if response.status_code != 200 or "error" in data:
+        error_val = data.get("error", {})
+        if isinstance(error_val, dict):
+            error_msg = error_val.get("message", str(error_val))
+        else:
+            error_msg = str(error_val)
+        raise RuntimeError(
+            f"Groq API error (Status {response.status_code}): {error_msg}"
+        )
+
+    choices = data.get("choices", [])
+    if not choices or not isinstance(choices, list):
+        raise RuntimeError("Malformed Groq response: missing 'choices' list.")
+
+    content = choices[0].get("message", {}).get("content", "").strip()
+    if not content:
+        raise RuntimeError("Groq API returned empty message content.")
+
+    return content
